@@ -1,4 +1,4 @@
-caudec <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
+caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   if (is.null(weight)) {
     data$weight=rep(1, nrow(data))
