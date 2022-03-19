@@ -1,7 +1,4 @@
-
-
-
-elements <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
+caudec <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
   
   if (is.null(weight)) {
     data$weight=rep(1, nrow(data))
@@ -84,14 +81,18 @@ elements <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
   
   ATE_i[G1_index] <- ( YgivenX.Pred_W1 + data[,W]*(data[,Y]-YgivenX.Pred_W1)/WgivenX.Pred - ( YgivenX.Pred_W0 + (1-data[,W])*(data[,Y]-YgivenX.Pred_W0)/(1-WgivenX.Pred) ) )[G1_index]*wht[G1_index]
   ATE_i[G2_index] <- ( YgivenX.Pred_W1 + data[,W]*(data[,Y]-YgivenX.Pred_W1)/WgivenX.Pred - ( YgivenX.Pred_W0 + (1-data[,W])*(data[,Y]-YgivenX.Pred_W0)/(1-WgivenX.Pred) ) )[G2_index]*wht[G2_index]
-
+  
+  se.Y <- 1/sqrt(nrow(data)/2)*
+    sqrt(mean((data[,Y][G1_index]-mean(data[,Y][G1_index]*wht[G1_index]))^2*wht[G1_index])
+         + mean((data[,Y][G2_index]-mean(data[,Y][G2_index]*wht[G2_index]))^2*wht[G2_index]))  
+  
   se.Y0 <- 1/sqrt(nrow(data)/2)*
     sqrt(mean(( Y0_i[G1_index]-mean(Y0_i[G1_index])*wht[G1_index] )^2)
          + mean(( Y0_i[G2_index]-mean(Y0_i[G2_index])*wht[G2_index] )^2))
   
   se.D <- 1/sqrt(nrow(data)/2)*
-    sqrt(var(data[,W][G1_index]*wht[G1_index])
-         + var(data[,W][G2_index]*wht[G2_index]))
+    sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])
+         + mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index]))  # these, same as in se.prevalence, are weighted variances. Not entirely sure if the weighting is ideally done in this way.
   
   se.ATE <- 1/sqrt(nrow(data)/2)*
     sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)
@@ -107,8 +108,6 @@ elements <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
   effect <- (1/2)*(mean(data[,W][G1_index]*wht[G1_index])+mean(data[,W][G2_index]*wht[G2_index]))*(mean(ATE_i[G1_index])-mean(ATE_i[G2_index]))
   selection <- (mean(ATT_i[G1_index])-mean(ATE_i[G1_index]))*mean(data[,W][G1_index]*wht[G1_index])-
     (mean(ATT_i[G2_index])-mean(ATE_i[G2_index]))*mean(data[,W][G2_index]*wht[G2_index])
-  
-  baseline+prevalence+effect+selection
 
   se.baseline <- se.Y0
   
@@ -116,7 +115,7 @@ elements <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
     sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])
          + mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index]))
   
-  se.effeft <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(data[,W][G1_index]*wht[G1_index])+mean(data[,W][G2_index]*wht[G2_index]))*
+  se.effect <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(data[,W][G1_index]*wht[G1_index])+mean(data[,W][G2_index]*wht[G2_index]))*
     sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)
          + mean(( ATE_i[G2_index]-mean(ATE_i[G2_index])*wht[G2_index] )^2))
   
@@ -124,150 +123,94 @@ elements <-  function(Y,W,G1,G2,Q,X,data,alpha,weight=NULL) {
     mean(data[,W][G1_index]*wht[G1_index])^2*mean((ATT_i[G1_index]-mean(ATT_i[G1_index])*data[,W][G1_index]/mean(data[,W][G1_index]*wht[G1_index])*wht[G1_index] - ATE_i[G1_index]+mean(ATE_i[G1_index])*wht[G1_index])^2) +
       mean(data[,W][G2_index]*wht[G2_index])^2*mean((ATT_i[G2_index]-mean(ATT_i[G2_index])*data[,W][G2_index]/mean(data[,W][G2_index]*wht[G2_index])*wht[G2_index] - ATE_i[G2_index]+mean(ATE_i[G2_index])*wht[G2_index])^2))
 
+  ### conditional prevalence ###
+  #data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.2)),include.lowest=TRUE)
+  data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.1)),include.lowest=TRUE)
+  #data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.02)),include.lowest=TRUE)
   
-  inference <- function(ave, se, alpha=alpha) {
-    return(c(2*(1-pnorm(abs(ave/se))),
-          ave-se*qnorm(p=1-alpha/2),
-          ave+se*qnorm(p=1-alpha/2)))
-  }
+  G1givenQ.Model <- svyglm(as.formula(paste(G1, paste("Q_cut",collapse="+"), sep="~")), family=gaussian(), 
+                           design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
+  G1givenQ.Pred <- as.vector(predict(G1givenQ.Model))
   
-  inference(ave=baseline, se=se.baseline)
-  
-  output <- 
-    as.data.frame(rbind(
-      c(mean(data[,Y][G1_index]), asy_CI(data[,Y][G1_index]), 
-        mean(data[,Y][G2_index]), asy_CI(data[,Y][G2_index]),
-        mean(data[,Y][G1_index])-mean(data[,Y][G2_index]), asy_CI(data[,Y][G1_index],data[,Y][G2_index])),
-      
-      c(mean(Y0_i[G1_index]), asy_CI(Y0_i[G1_index]), 
-        mean(Y0_i[G2_index]), asy_CI(Y0_i[G2_index]),
-        mean(Y0_i[G1_index])-mean(Y0_i[G2_index]), asy_CI(Y0_i[G1_index],Y0_i[G2_index])),
-      
-      c(mean(data[,W][G1_index]), asy_CI(data[,W][G1_index]),
-        mean(data[,W][G2_index]), asy_CI(data[,W][G2_index]),
-        mean(data[,W][G1_index])-mean(data[,W][G2_index]), asy_CI(data[,W][G1_index],data[,W][G2_index])),
-      
-      c(mean(ATE_i[G1_index]), asy_CI(ATE_i[G1_index]),
-        mean(ATE_i[G2_index]), asy_CI(ATE_i[G2_index]),
-        mean(ATE_i[G1_index])-mean(ATE_i[G2_index]), asy_CI(ATE_i[G1_index],ATE_i[G2_index])),
-      
-      c(mean(ATT_i[G1_index]/mean(data[,W][G1_index])), asy_CI(ATT_i[G1_index]/mean(data[,W][G1_index])),
-        mean(ATT_i[G2_index]/mean(data[,W][G2_index])), asy_CI(ATT_i[G2_index]/mean(data[,W][G2_index])),
-        mean(ATT_i[G1_index]/mean(data[,W][G1_index]))-mean(ATT_i[G2_index]/mean(data[,W][G2_index])), asy_CI(ATT_i[G1_index]/mean(data[,W][G1_index]),ATT_i[G2_index]/mean(data[,W][G2_index])))
-    ))
-  
-  row.names(output) <- c("total","baseline","prevalence","ATE","ATT")
-  colnames(output) <- c("G1.Mean","G1.Upper","G1.Lower","G2.Mean","G2.Upper","G2.Lower","Diff.Mean","Diff.Upper","Diff.Lower")
-  
-  return(output)
-}
+  wht1 <- data[,weight]/mean(data[,weight])
+  r <- G1givenQ.Pred/(1-G1givenQ.Pred)*mean(data[,G2]*wht1)/mean(data[,G1]*wht1)  # the weight
+  # mean(r[G2_index]*wht[G2_index])  # when the G1~Q model is saturated lm or glm, this mean is always 1. This is nice because E(r(Q)|G2=1)=1. 
 
+  c_prevalence <- (1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*(mean(data[,W][G1_index]*wht[G1_index])-mean((r*data[,W])[G2_index]*wht[G2_index]))
 
-
-estimate <-  function(Y,W,G1,G2,Q,X,data,alpha) {
-  
-  elements_output <- elements(Y,W,G1,G2,Q,X,data,alpha)
-  
-  total <- elements_output$Diff.Mean[1]
-  
-  baseline <- elements_output$Diff.Mean[2]
-  prevalence <- (1/2)*(elements_output$G1.Mean[4]+elements_output$G2.Mean[4])*elements_output$Diff.Mean[3]
-  effect <- (1/2)*(elements_output$G1.Mean[3]+elements_output$G2.Mean[3])*elements_output$Diff.Mean[4]
-  selection <- (elements_output$G1.Mean[5]-elements_output$G1.Mean[4])*elements_output$G1.Mean[3]-
-    (elements_output$G2.Mean[5]-elements_output$G2.Mean[4])*elements_output$G2.Mean[3]
-  
-  mainsample <- sample(nrow(data), floor(nrow(data)/2), replace=F)
-  auxsample <- setdiff(1:nrow(data), mainsample)
-  
-  G1givenQ.Pred <- G2givenQ.Pred <- rep(NA, nrow(data))
-  
-  G1_index <- data[,G1]==1
-  G2_index <- data[,G2]==1
-  
-  data[,G1] <- as.factor(data[,G1])
-  G1givenQ.Model.Aux <- train(as.formula(paste(G1, paste(Q,collapse="+"), sep="~")), data=data[auxsample,], method="nnet", 
-                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                              tuneGrid=expand.grid(size=2,decay=0.02))
-  G1givenQ.Model.Main <- train(as.formula(paste(G1, paste(Q,collapse="+"), sep="~")), data=data[mainsample,], method="nnet",
-                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                               tuneGrid=expand.grid(size=2,decay=0.02))
-  G1givenQ.Pred[mainsample] <- predict(G1givenQ.Model.Aux, newdata = data[mainsample,], type="prob")[,2]
-  G1givenQ.Pred[auxsample] <- predict(G1givenQ.Model.Main, newdata = data[auxsample,], type="prob")[,2]
-  data[,G1] <- as.numeric(data[,G1])-1
-  
-  data[,G2] <- as.factor(data[,G2])
-  G2givenQ.Model.Aux <- train(as.formula(paste(G2, paste(Q,collapse="+"), sep="~")), data=data[auxsample,], method="nnet",
-                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                              tuneGrid=expand.grid(size=2,decay=0.02)) 
-  G2givenQ.Model.Main <- train(as.formula(paste(G2, paste(Q,collapse="+"), sep="~")), data=data[mainsample,], method="nnet",
-                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                               tuneGrid=expand.grid(size=2,decay=0.02))
-  G2givenQ.Pred[mainsample] <- predict(G2givenQ.Model.Aux, newdata = data[mainsample,], type="prob")[,2]
-  G2givenQ.Pred[auxsample] <- predict(G2givenQ.Model.Main, newdata = data[auxsample,], type="prob")[,2]
-  data[,G2] <- as.numeric(data[,G2])-1
-  
-  weight_cond_prev <- (G1givenQ.Pred/G2givenQ.Pred)*(mean(data[,G2])/mean(data[,G1]))
-  
-  sum(weight_cond_prev>=10)
-  weight_cond_prev[weight_cond_prev>=10] <- 10
-  
-  cond_prev <- (1/2)*(elements_output$G1.Mean[4]+elements_output$G2.Mean[4])*(mean(data[,W][G1_index]) - mean((weight_cond_prev/mean(weight_cond_prev[G2_index])*data[,W])[G2_index]))
-  
-  return(c(total, baseline, prevalence, effect, selection, cond_prev))
-  
-}
-
-caudec <- function(Y,W,G1,G2,Q,X,data,k,alpha) {
-  message <- capture.output(original_output <- estimate(Y,W,G1,G2,Q,X,data,alpha))
-  
-  boot_output <- matrix(nrow=k, ncol=6)
+  boot_out <- rep(NA, k)
   for (i in 1: k) {
-    data_boot <- data[sample(1:nrow(data), nrow(data), replace = TRUE),]
-    message <- capture.output(boot_output[i,] <- estimate(Y,W,G1,G2,Q,X,data_boot,alpha))
+  data_boot <- data[sample(1:nrow(data), nrow(data), replace = TRUE),]
+  G1givenQ.Model <- svyglm(as.formula(paste(G1, paste("Q_cut",collapse="+"), sep="~")), family=gaussian(), 
+                           design=svydesign(id=rownames(data_boot), data=data_boot, weights=data_boot[,weight]))
+  G1givenQ.Pred <- as.vector(predict(G1givenQ.Model))
+  
+  r <- G1givenQ.Pred/(1-G1givenQ.Pred)*weighted.mean(data_boot[,G2], data_boot[,weight])/weighted.mean(data_boot[,G1],data_boot[,weight])
+  boot_out[i] <- weighted.mean(data_boot[,W][data_boot[,G1]==1], data_boot[,weight][data_boot[,G1]==1])-
+    weighted.mean((r*data_boot[,W])[data_boot[,G2]==1], data_boot[,weight][data_boot[,G2]==1])
+  }
+
+  se.c_prevalence <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*sd(boot_out)
+  ###  ###
+
+  inference <- function(ave, se, alpha) {
+    return(c(ave,
+             se,
+             2*(1-pnorm(abs(ave/se))),
+             ave-se*qnorm(1-alpha/2),
+             ave+se*qnorm(1-alpha/2)))
   }
   
-  boot_total_lower <- 2*original_output[1]-boot_output[,1][order(boot_output[,1])][floor(k*(1-alpha/2))]
-  boot_total_upper <- 2*original_output[1]-boot_output[,1][order(boot_output[,1])][ceiling(k*alpha/2)]
+
+  # testing the inference result for mean W difference and mean Y difference against conventional t test. 
+  # inference(ave=mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]), se=se.D, alpha)
+  # svyttest(college~pincome_1, design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
+  # My CI is a little tighter than the t.test CI.
+  # inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.D, alpha)
+  # svyttest(adult_income~pincome_1, design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
+  # My CI is almost the same as the t.test CI.
+
   
-  boot_baseline_lower <- 2*original_output[2]-boot_output[,2][order(boot_output[,2])][floor(k*(1-alpha/2))]
-  boot_baseline_upper <- 2*original_output[2]-boot_output[,2][order(boot_output[,2])][ceiling(k*alpha/2)]
+  output <- list(
+    underlying=as.data.frame(rbind(
+      inference(ave=mean(data[,Y][G1_index]*wht[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean((data[,Y][G1_index]-mean(data[,Y][G1_index]*wht[G1_index]))^2*wht[G1_index])), alpha),
+      inference(ave=mean(data[,Y][G2_index]*wht[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean((data[,Y][G2_index]-mean(data[,Y][G2_index]*wht[G2_index]))^2*wht[G2_index])), alpha),
+      
+      inference(ave=mean(Y0_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( Y0_i[G1_index]-mean(Y0_i[G1_index])*wht[G1_index] )^2)), alpha),
+      inference(ave=mean(Y0_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( Y0_i[G2_index]-mean(Y0_i[G2_index])*wht[G2_index] )^2)), alpha),
+      
+      inference(ave=mean(data[,W][G1_index]*wht[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])), alpha),
+      inference(ave=mean(data[,W][G2_index]*wht[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index])), alpha),
+      
+      inference(ave=mean(ATE_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)), alpha),
+      inference(ave=mean(ATE_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( ATE_i[G2_index]-mean(ATE_i[G2_index])*wht[G2_index] )^2)), alpha),
+      
+      inference(ave=mean(ATT_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( ATT_i[G1_index]-mean(ATT_i[G1_index])*data[,W][G1_index]/mean(data[,W][G1_index]*wht[G1_index])*wht[G1_index] )^2)), alpha),
+      inference(ave=mean(ATT_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( ATT_i[G2_index]-mean(ATT_i[G2_index])*data[,W][G2_index]/mean(data[,W][G2_index]*wht[G2_index])*wht[G2_index] )^2)), alpha)
+    )),
+    
+    underlying_diff=as.data.frame(rbind(
+      inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.Y, alpha),
+      inference(ave=baseline, se=se.baseline, alpha),
+      inference(ave=mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]), se=se.D, alpha),
+      inference(ave=mean(ATE_i[G1_index])-mean(ATE_i[G2_index]), se=se.ATE, alpha),
+      inference(ave=mean(ATT_i[G1_index])-mean(ATT_i[G2_index]), se=se.ATT, alpha)
+    )),
+    
+    decomp=as.data.frame(rbind(
+      inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.Y, alpha),
+      inference(ave=baseline, se=se.baseline, alpha),
+      inference(ave=prevalence, se=se.prevalence, alpha),
+      inference(ave=effect, se=se.effect, alpha),
+      inference(ave=selection, se=se.selection, alpha),
+      inference(ave=c_prevalence, se=se.c_prevalence, alpha)
+    ))
+  )
   
-  boot_prevalence_lower <- 2*original_output[3]-boot_output[,3][order(boot_output[,3])][floor(k*(1-alpha/2))]
-  boot_prevalence_upper <- 2*original_output[3]-boot_output[,3][order(boot_output[,3])][ceiling(k*alpha/2)]
-  
-  boot_effect_lower <- 2*original_output[4]-boot_output[,4][order(boot_output[,4])][floor(k*(1-alpha/2))]
-  boot_effect_upper <- 2*original_output[4]-boot_output[,4][order(boot_output[,4])][ceiling(k*alpha/2)]
-  
-  boot_selection_lower <- 2*original_output[5]-boot_output[,5][order(boot_output[,5])][floor(k*(1-alpha/2))]
-  boot_selection_upper <- 2*original_output[5]-boot_output[,5][order(boot_output[,5])][ceiling(k*alpha/2)]
-  
-  boot_cond_prev_lower <- 2*original_output[6]-boot_output[,6][order(boot_output[,6])][floor(k*(1-alpha/2))]
-  boot_cond_prev_upper <- 2*original_output[6]-boot_output[,6][order(boot_output[,6])][ceiling(k*alpha/2)]
-  
-  output <- as.data.frame(cbind(original_output, 
-                                c(2*original_output[1]-boot_output[,1][order(boot_output[,1])][floor(k*(1-alpha/2))],
-                                  2*original_output[2]-boot_output[,2][order(boot_output[,2])][floor(k*(1-alpha/2))],
-                                  2*original_output[3]-boot_output[,3][order(boot_output[,3])][floor(k*(1-alpha/2))],
-                                  2*original_output[4]-boot_output[,4][order(boot_output[,4])][floor(k*(1-alpha/2))],
-                                  2*original_output[5]-boot_output[,5][order(boot_output[,5])][floor(k*(1-alpha/2))],
-                                  2*original_output[6]-boot_output[,6][order(boot_output[,6])][floor(k*(1-alpha/2))]),
-                                c(2*original_output[1]-boot_output[,1][order(boot_output[,1])][floor(k*alpha/2)],
-                                  2*original_output[2]-boot_output[,2][order(boot_output[,2])][floor(k*alpha/2)],
-                                  2*original_output[3]-boot_output[,3][order(boot_output[,3])][floor(k*alpha/2)],
-                                  2*original_output[4]-boot_output[,4][order(boot_output[,4])][floor(k*alpha/2)],
-                                  2*original_output[5]-boot_output[,5][order(boot_output[,5])][floor(k*alpha/2)],
-                                  2*original_output[6]-boot_output[,6][order(boot_output[,6])][floor(k*alpha/2)])))
-  colnames(output) <- c("estimate","lower","upper")
-  row.names(output) <- c("total","baseline","prevalence","effect","selection","cond_prev")
+  colnames(output$underlying) <- colnames(output$underlying_diff) <- colnames(output$decomp) <- c("average","se","p value","lowerCI","upperCI")
+  row.names(output$underlying) <- c("Y_G1","Y_G2","Y0_G1","Y0_G2","W_G1","W_G2","ATE_G1","ATE_G2","ATT_G1","ATT_G2")
+  row.names(output$underlying_diff) <- c("Y","Y0","W","ATE","ATT")
+  row.names(output$decomp) <- c("total","baseline","prevalence","effect","selection","conditional_prevalence")
+
   return(output)
 }
-
-set.seed(36)
-temp1 <- caudec(Y,W,G1="race1",G2="race2",Q,X,data,k=200,alpha)
-format(round(temp1, 3), nsmall = 3)
-
-tab <- xtable(temp1, caption= "caudec estimates",digits=3)
-print(tab, caption.placement="top", hline.after=c(-1,0,6))
-
-
-
