@@ -1,3 +1,6 @@
+
+
+
 caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   if (is.null(weight)) {
@@ -16,18 +19,18 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   YgivenX.Pred_W0 <- YgivenX.Pred_W1 <- WgivenX.Pred <- rep(NA, nrow(data))
   
-  YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G1,], method="nnet", 
+  message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G1,], method="nnet", 
                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                             tuneGrid=expand.grid(size=2,decay=0.02))
-  YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G1,], method="nnet",
+                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G1,], method="nnet",
                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                              tuneGrid=expand.grid(size=2,decay=0.02))
-  YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G2,], method="nnet", 
+                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G2,], method="nnet", 
                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                tuneGrid=expand.grid(size=2,decay=0.02))
-  YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G2,], method="nnet",
+                                tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G2,], method="nnet",
                                  preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                 tuneGrid=expand.grid(size=2,decay=0.02))
+                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
   
   pred_data <- data
   pred_data[,colnames(pred_data)%in%W] <- 0
@@ -45,18 +48,18 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   
   data[,W] <- as.factor(data[,W])
-  WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G1,], method="nnet", 
+  message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G1,], method="nnet", 
                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                             tuneGrid=expand.grid(size=2,decay=0.02))
-  WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G1,], method="nnet",
+                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G1,], method="nnet",
                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
-                              tuneGrid=expand.grid(size=2,decay=0.02))
-  WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G2,], method="nnet", 
+                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G2,], method="nnet", 
                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                                tuneGrid=expand.grid(size=2,decay=0.02))
-  WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G2,], method="nnet",
+                                tuneGrid=expand.grid(size=2,decay=0.02)) )
+  message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G2,], method="nnet",
                                  preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
-                                 tuneGrid=expand.grid(size=2,decay=0.02))
+                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
   
   WgivenX.Pred[G1_index][mainsample_G1] <- predict(WgivenX.Model.Aux_G1, newdata=data[G1_index,][mainsample_G1,], type="prob")[,2]
   WgivenX.Pred[G1_index][auxsample_G1] <- predict(WgivenX.Model.Main_G1, newdata=data[G1_index,][auxsample_G1,], type="prob")[,2]
@@ -207,10 +210,11 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
     ))
   )
   
-  colnames(output$underlying) <- colnames(output$underlying_diff) <- colnames(output$decomp) <- c("average","se","p value","lowerCI","upperCI")
+  colnames(output$underlying) <- colnames(output$underlying_diff) <- colnames(output$decomp) <- c("average","se","p_value","lowerCI","upperCI")
   row.names(output$underlying) <- c("Y_G1","Y_G2","Y0_G1","Y0_G2","W_G1","W_G2","ATE_G1","ATE_G2","ATT_G1","ATT_G2")
   row.names(output$underlying_diff) <- c("Y","Y0","W","ATE","ATT")
-  row.names(output$decomp) <- c("total","baseline","prevalence","effect","selection","conditional_prevalence")
+  row.names(output$decomp) <- c("Total","Baseline","Prevalence","Effect","Selection","Conditional prevalence")
 
   return(output)
 }
+
