@@ -97,40 +97,38 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
   data_cond <- as.data.frame(data_cond)
   colnames(data_cond)[1:2] <- c("tau","W")
   Q_names <- colnames(data_cond)[3:ncol(data_cond)]
+  data_cond$W <- as.factor(data_cond$W)
   
-  message <- capture.output( TaugivenQ.Model.Main_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,][mainsample_G1,], method="nnet", 
+  message <- capture.output( TaugivenQ.Model_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
                                                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                                                               tuneGrid=expand.grid(size=2,decay=0.02)) )
   
-  message <- capture.output( TaugivenQ.Model.Aux_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,][auxsample_G1,], method="nnet", 
+  message <- capture.output( TaugivenQ.Model_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
                                                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                                                               tuneGrid=expand.grid(size=2,decay=0.02)) )
   
-  message <- capture.output( TaugivenQ.Model.Aux_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,][mainsample_G2,], method="nnet", 
-                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
   
-  message <- capture.output( TaugivenQ.Model.Main_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,][auxsample_G2,], method="nnet", 
-                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  TaugivenQ.Pred_G1_G1 <- TaugivenQ.Pred_G2_G1 <- DgivenQ.Pred_G1_G1 <- DgivenQ.Pred_G2_G1 <- rep(NA, sum(G1_index))
+  TaugivenQ.Pred_G1_G2 <- TaugivenQ.Pred_G2_G2 <- DgivenQ.Pred_G1_G2 <- DgivenQ.Pred_G2_G2 <- rep(NA, sum(G2_index))
   
-  TaugivenQ.Pred_G1_G1 <- rep(NA, sum(G1_index))
+  TaugivenQ.Pred_G1_G1 <- predict(TaugivenQ.Model_G1, newdata = data_cond[G1_index,])
+  TaugivenQ.Pred_G2_G1 <- predict(TaugivenQ.Model_G2, newdata = data_cond[G1_index,])
+  TaugivenQ.Pred_G1_G2 <- predict(TaugivenQ.Model_G1, newdata = data_cond[G2_index,])
+  TaugivenQ.Pred_G2_G2 <- predict(TaugivenQ.Model_G2, newdata = data_cond[G2_index,])
   
-  pred_data <- data_cond
-  TaugivenQ.Pred_G1_G1[mainsample_G1] <- predict(YgivenX.Model.Aux_G1, newdata = pred_data[G1_index,][mainsample_G1,])
+  message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
+                                                         preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
+                                                         tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
+                                                         preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
+                                                         tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  WaugivenQ.Pred_G1_G1 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G1_index,], type="prob")[,2]
+  WaugivenQ.Pred_G2_G1 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G1_index,], type="prob")[,2]
+  WaugivenQ.Pred_G1_G2 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G2_index,], type="prob")[,2]
+  WaugivenQ.Pred_G2_G2 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G2_index,], type="prob")[,2]
 
-  rep(NA, nrow(data))
-  
-  YgivenX.Pred_W1[G1_index][mainsample_G1] <- predict(YgivenX.Model.Aux_G1, newdata = pred_data[G1_index,][mainsample_G1,])
-  YgivenX.Pred_W1[G1_index][auxsample_G1] <- predict(YgivenX.Model.Main_G1, newdata = pred_data[G1_index,][auxsample_G1,])
-  YgivenX.Pred_W1[G2_index][mainsample_G2] <- predict(YgivenX.Model.Aux_G2, newdata = pred_data[G2_index,][mainsample_G2,])
-  YgivenX.Pred_W1[G2_index][auxsample_G2] <- predict(YgivenX.Model.Main_G2, newdata = pred_data[G2_index,][auxsample_G2,])
-  
-  
-
-  ATE_i[G2_index][mainsample_G2] 
-  
-  ATE_i[G2_index][auxsample_G2] 
   
   ###  ###
 
