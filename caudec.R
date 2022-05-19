@@ -1,7 +1,7 @@
 
 
 
-caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
+caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
   
   if (is.null(weight)) {
     data$weight=rep(1, nrow(data))
@@ -19,16 +19,16 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   YgivenX.Pred_W0 <- YgivenX.Pred_W1 <- WgivenX.Pred <- rep(NA, nrow(data))
   
-  message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G1,], method="nnet", 
+  message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet", 
                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                              tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G1,], method="nnet",
+  message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet",
                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                               tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[mainsample_G2,], method="nnet", 
+  message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet", 
                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[auxsample_G2,], method="nnet",
+  message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet",
                                  preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
                                  tuneGrid=expand.grid(size=2,decay=0.02)) )
   
@@ -48,16 +48,16 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   
   data[,W] <- as.factor(data[,W])
-  message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G1,], method="nnet", 
+  message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet", 
                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
                              tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G1,], method="nnet",
+  message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet",
                               preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
                               tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[auxsample_G2,], method="nnet", 
+  message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet", 
                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[mainsample_G2,], method="nnet",
+  message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet",
                                  preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
                                  tuneGrid=expand.grid(size=2,decay=0.02)) )
   
@@ -68,8 +68,8 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   
   data[,W] <- as.numeric(data[,W])-1
   
-  WgivenX.Pred[WgivenX.Pred<=0.20] <- 0.20
-  WgivenX.Pred[WgivenX.Pred>=0.80] <- 0.80
+  WgivenX.Pred[WgivenX.Pred<=t] <- t
+  WgivenX.Pred[WgivenX.Pred>=1-t] <- 1-t
 
   Y0_i <- ATT_i <- ATE_i <- wht <- rep(NA, nrow(data))
   
@@ -85,46 +85,54 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
   ATE_i[G1_index] <- ( YgivenX.Pred_W1 + data[,W]*(data[,Y]-YgivenX.Pred_W1)/WgivenX.Pred - ( YgivenX.Pred_W0 + (1-data[,W])*(data[,Y]-YgivenX.Pred_W0)/(1-WgivenX.Pred) ) )[G1_index]*wht[G1_index]
   ATE_i[G2_index] <- ( YgivenX.Pred_W1 + data[,W]*(data[,Y]-YgivenX.Pred_W1)/WgivenX.Pred - ( YgivenX.Pred_W0 + (1-data[,W])*(data[,Y]-YgivenX.Pred_W0)/(1-WgivenX.Pred) ) )[G2_index]*wht[G2_index]
   
-  se.Y <- 1/sqrt(nrow(data)/2)*
-    sqrt(mean((data[,Y][G1_index]-mean(data[,Y][G1_index]*wht[G1_index]))^2*wht[G1_index])
-         + mean((data[,Y][G2_index]-mean(data[,Y][G2_index]*wht[G2_index]))^2*wht[G2_index]))  
-  
-  se.Y0 <- 1/sqrt(nrow(data)/2)*
-    sqrt(mean(( Y0_i[G1_index]-mean(Y0_i[G1_index])*wht[G1_index] )^2)
-         + mean(( Y0_i[G2_index]-mean(Y0_i[G2_index])*wht[G2_index] )^2))
-  
-  se.D <- 1/sqrt(nrow(data)/2)*
-    sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])
-         + mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index]))  # these, same as in se.prevalence, are weighted variances. Not entirely sure if the weighting is ideally done in this way.
-  
-  se.ATE <- 1/sqrt(nrow(data)/2)*
-    sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)
-         + mean(( ATE_i[G2_index]-mean(ATE_i[G2_index])*wht[G2_index] )^2))
-  
-  se.ATT <- 1/sqrt(nrow(data)/2)*
-    sqrt(mean(( ATT_i[G1_index]-mean(ATT_i[G1_index])*data[,W][G1_index]/mean(data[,W][G1_index]*wht[G1_index])*wht[G1_index] )^2)
-         + mean(( ATT_i[G2_index]-mean(ATT_i[G2_index])*data[,W][G2_index]/mean(data[,W][G2_index]*wht[G2_index])*wht[G2_index] )^2))
-  
   total <- mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index])
   baseline <- mean(Y0_i[G1_index])-mean(Y0_i[G2_index])
-  prevalence <- (1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*(mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]))
-  effect <- (1/2)*(mean(data[,W][G1_index]*wht[G1_index])+mean(data[,W][G2_index]*wht[G2_index]))*(mean(ATE_i[G1_index])-mean(ATE_i[G2_index]))
+  prevalence <- mean(ATE_i[G2_index])*(mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]))
+  effect <- mean(data[,W][G1_index]*wht[G1_index])*(mean(ATE_i[G1_index])-mean(ATE_i[G2_index]))
   selection <- (mean(ATT_i[G1_index])-mean(ATE_i[G1_index]))*mean(data[,W][G1_index]*wht[G1_index])-
     (mean(ATT_i[G2_index])-mean(ATE_i[G2_index]))*mean(data[,W][G2_index]*wht[G2_index])
+  
+  ### conditional prevalence ###
+  data_cond <- cbind(ATE_i, data[,W], data[,Q])
+  data_cond <- as.data.frame(data_cond)
+  colnames(data_cond)[1:2] <- c("tau","W")
+  Q_names <- colnames(data_cond)[3:ncol(data_cond)]
+  
+  message <- capture.output( TaugivenQ.Model.Main_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,][mainsample_G1,], method="nnet", 
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  message <- capture.output( TaugivenQ.Model.Aux_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,][auxsample_G1,], method="nnet", 
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  message <- capture.output( TaugivenQ.Model.Aux_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,][mainsample_G2,], method="nnet", 
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  message <- capture.output( TaugivenQ.Model.Main_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,][auxsample_G2,], method="nnet", 
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+  TaugivenQ.Pred_G1_G1 <- rep(NA, sum(G1_index))
+  
+  pred_data <- data_cond
+  TaugivenQ.Pred_G1_G1[mainsample_G1] <- predict(YgivenX.Model.Aux_G1, newdata = pred_data[G1_index,][mainsample_G1,])
 
-  se.baseline <- se.Y0
+  rep(NA, nrow(data))
   
-  se.prevalence <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*
-    sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])
-         + mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index]))
+  YgivenX.Pred_W1[G1_index][mainsample_G1] <- predict(YgivenX.Model.Aux_G1, newdata = pred_data[G1_index,][mainsample_G1,])
+  YgivenX.Pred_W1[G1_index][auxsample_G1] <- predict(YgivenX.Model.Main_G1, newdata = pred_data[G1_index,][auxsample_G1,])
+  YgivenX.Pred_W1[G2_index][mainsample_G2] <- predict(YgivenX.Model.Aux_G2, newdata = pred_data[G2_index,][mainsample_G2,])
+  YgivenX.Pred_W1[G2_index][auxsample_G2] <- predict(YgivenX.Model.Main_G2, newdata = pred_data[G2_index,][auxsample_G2,])
   
-  se.effect <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(data[,W][G1_index]*wht[G1_index])+mean(data[,W][G2_index]*wht[G2_index]))*
-    sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)
-         + mean(( ATE_i[G2_index]-mean(ATE_i[G2_index])*wht[G2_index] )^2))
   
-  se.selection <- 1/sqrt(nrow(data)/2)*sqrt( 
-    mean(data[,W][G1_index]*wht[G1_index])^2*mean((ATT_i[G1_index]-mean(ATT_i[G1_index])*data[,W][G1_index]/mean(data[,W][G1_index]*wht[G1_index])*wht[G1_index] - ATE_i[G1_index]+mean(ATE_i[G1_index])*wht[G1_index])^2) +
-      mean(data[,W][G2_index]*wht[G2_index])^2*mean((ATT_i[G2_index]-mean(ATT_i[G2_index])*data[,W][G2_index]/mean(data[,W][G2_index]*wht[G2_index])*wht[G2_index] - ATE_i[G2_index]+mean(ATE_i[G2_index])*wht[G2_index])^2))
+
+  ATE_i[G2_index][mainsample_G2] 
+  
+  ATE_i[G2_index][auxsample_G2] 
+  
+  ###  ###
 
   ### conditional prevalence ###
   #data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.2)),include.lowest=TRUE)
@@ -155,59 +163,29 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500) {
 
   se.c_prevalence <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*sd(boot_out)
   ###  ###
-
-  inference <- function(ave, se, alpha) {
-    return(c(ave,
-             se,
-             2*(1-pnorm(abs(ave/se))),
-             ave-se*qnorm(1-alpha/2),
-             ave+se*qnorm(1-alpha/2)))
-  }
-  
-
-  # testing the inference result for mean W difference and mean Y difference against conventional t test. 
-  # inference(ave=mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]), se=se.D, alpha)
-  # svyttest(college~pincome_1, design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
-  # My CI is a little tighter than the t.test CI.
-  # inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.D, alpha)
-  # svyttest(adult_income~pincome_1, design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
-  # My CI is almost the same as the t.test CI.
-
   
   output <- list(
-    underlying=as.data.frame(rbind(
-      inference(ave=mean(data[,Y][G1_index]*wht[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean((data[,Y][G1_index]-mean(data[,Y][G1_index]*wht[G1_index]))^2*wht[G1_index])), alpha),
-      inference(ave=mean(data[,Y][G2_index]*wht[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean((data[,Y][G2_index]-mean(data[,Y][G2_index]*wht[G2_index]))^2*wht[G2_index])), alpha),
-      
-      inference(ave=mean(Y0_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( Y0_i[G1_index]-mean(Y0_i[G1_index])*wht[G1_index] )^2)), alpha),
-      inference(ave=mean(Y0_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( Y0_i[G2_index]-mean(Y0_i[G2_index])*wht[G2_index] )^2)), alpha),
-      
-      inference(ave=mean(data[,W][G1_index]*wht[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean((data[,W][G1_index]-mean(data[,W][G1_index]*wht[G1_index]))^2*wht[G1_index])), alpha),
-      inference(ave=mean(data[,W][G2_index]*wht[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean((data[,W][G2_index]-mean(data[,W][G2_index]*wht[G2_index]))^2*wht[G2_index])), alpha),
-      
-      inference(ave=mean(ATE_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( ATE_i[G1_index]-mean(ATE_i[G1_index])*wht[G1_index] )^2)), alpha),
-      inference(ave=mean(ATE_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( ATE_i[G2_index]-mean(ATE_i[G2_index])*wht[G2_index] )^2)), alpha),
-      
-      inference(ave=mean(ATT_i[G1_index]), se=1/sqrt(sum(G1_index))*sqrt(mean(( ATT_i[G1_index]-mean(ATT_i[G1_index])*data[,W][G1_index]/mean(data[,W][G1_index]*wht[G1_index])*wht[G1_index] )^2)), alpha),
-      inference(ave=mean(ATT_i[G2_index]), se=1/sqrt(sum(G2_index))*sqrt(mean(( ATT_i[G2_index]-mean(ATT_i[G2_index])*data[,W][G2_index]/mean(data[,W][G2_index]*wht[G2_index])*wht[G2_index] )^2)), alpha)
-    )),
-    
-    underlying_diff=as.data.frame(rbind(
-      inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.Y, alpha),
-      inference(ave=baseline, se=se.baseline, alpha),
-      inference(ave=mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]), se=se.D, alpha),
-      inference(ave=mean(ATE_i[G1_index])-mean(ATE_i[G2_index]), se=se.ATE, alpha),
-      inference(ave=mean(ATT_i[G1_index])-mean(ATT_i[G2_index]), se=se.ATT, alpha)
-    )),
-    
-    decomp=as.data.frame(rbind(
-      inference(ave=mean(data[,Y][G1_index]*wht[G1_index])-mean(data[,Y][G2_index]*wht[G2_index]), se=se.Y, alpha),
-      inference(ave=baseline, se=se.baseline, alpha),
-      inference(ave=prevalence, se=se.prevalence, alpha),
-      inference(ave=effect, se=se.effect, alpha),
-      inference(ave=selection, se=se.selection, alpha),
-      inference(ave=c_prevalence, se=se.c_prevalence, alpha)
-    ))
+    underlying=c(mean(data[,Y][G1_index]*wht[G1_index]),
+                 mean(data[,Y][G2_index]*wht[G2_index]),
+                 mean(Y0_i[G1_index]),
+                 mean(Y0_i[G2_index]),
+                 mean(data[,W][G1_index]*wht[G1_index]),
+                 mean(data[,W][G2_index]*wht[G2_index]),
+                 mean(ATE_i[G1_index]),
+                 mean(ATE_i[G2_index]),
+                 mean(ATT_i[G1_index]),
+                 mean(ATT_i[G2_index])),
+    underlying_diff=c(total,
+                      baseline,
+                      mean(data[,W][G1_index]*wht[G1_index])-mean(data[,W][G2_index]*wht[G2_index]),
+                      mean(ATE_i[G1_index])-mean(ATE_i[G2_index]),
+                      mean(ATT_i[G1_index])-mean(ATT_i[G2_index])),
+    decomp=c(total,
+             baseline,
+             prevalence,
+             effect,
+             selection,
+    )
   )
   
   colnames(output$underlying) <- colnames(output$underlying_diff) <- colnames(output$decomp) <- c("average","se","p_value","lowerCI","upperCI")
