@@ -1,7 +1,7 @@
 
 
 
-caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
+caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05,algorithm) {
   
   if (is.null(weight)) {
     data$weight=rep(1, nrow(data))
@@ -19,18 +19,36 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
   
   YgivenX.Pred_W0 <- YgivenX.Pred_W1 <- WgivenX.Pred <- rep(NA, nrow(data))
   
-  message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet", 
-                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                             tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet",
-                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                              tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet", 
-                                preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet",
-                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
+  if (algorithm=="nnet") {
+    message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet", 
+                                                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet",
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet", 
+                                                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet",
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  }
+  if (algorithm=="ranger") {
+    message <- capture.output( YgivenX.Model.Aux_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="ranger", 
+                                                             trControl=trainControl(method="cv"),
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="variance",min.node.size=c(5,10,100))) )
+    message <- capture.output( YgivenX.Model.Main_G1 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="ranger",
+                                                              trControl=trainControl(method="cv"),
+                                                              tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="variance",min.node.size=c(5,10,100))) )
+    message <- capture.output( YgivenX.Model.Aux_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="ranger", 
+                                                             trControl=trainControl(method="cv"),
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="variance",min.node.size=c(5,10,100))) )
+    message <- capture.output( YgivenX.Model.Main_G2 <- train(as.formula(paste(Y, paste(W,paste(X,collapse="+"),sep="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="ranger",
+                                                              trControl=trainControl(method="cv"),
+                                                              tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="variance",min.node.size=c(5,10,100))) )
+  }
+  
+  
   
   pred_data <- data
   pred_data[,colnames(pred_data)%in%W] <- 0
@@ -48,18 +66,36 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
   
   
   data[,W] <- as.factor(data[,W])
-  message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet", 
-                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                             tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet",
-                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
-                              tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet", 
-                                preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                                tuneGrid=expand.grid(size=2,decay=0.02)) )
-  message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet",
-                                 preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
-                                 tuneGrid=expand.grid(size=2,decay=0.02)) )
+  levels(data[,W]) <- c("W0","W1")  # necessary for caret implementation of ranger
+  
+  if (algorithm=="nnet") {
+    message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="nnet", 
+                                                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="nnet",
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="nnet", 
+                                                             preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+    message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="nnet",
+                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE,
+                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  }
+  if (algorithm=="ranger") {
+    message <- capture.output( WgivenX.Model.Aux_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][auxsample_G1,], method="ranger", 
+                                                             trControl=trainControl(method="cv", classProbs=TRUE),
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="gini",min.node.size=c(1,10,100))) )
+    message <- capture.output( WgivenX.Model.Main_G1 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G1_index,][mainsample_G1,], method="ranger",
+                                                              trControl=trainControl(method="cv", classProbs=TRUE),
+                                                              tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="gini",min.node.size=c(1,10,100))) )
+    message <- capture.output( WgivenX.Model.Aux_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][auxsample_G2,], method="ranger", 
+                                                             trControl=trainControl(method="cv", classProbs=TRUE),
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="gini",min.node.size=c(1,10,100))) )
+    message <- capture.output( WgivenX.Model.Main_G2 <- train(as.formula(paste(W, paste(X,collapse="+"), sep="~")), data=data[G2_index,][mainsample_G2,], method="ranger",
+                                                              trControl=trainControl(method="cv", classProbs=TRUE),
+                                                              tuneGrid=expand.grid(mtry=floor(sqrt(length(X))),splitrule="gini",min.node.size=c(1,10,100))) )
+  }
   
   WgivenX.Pred[G1_index][mainsample_G1] <- predict(WgivenX.Model.Aux_G1, newdata=data[G1_index,][mainsample_G1,], type="prob")[,2]
   WgivenX.Pred[G1_index][auxsample_G1] <- predict(WgivenX.Model.Main_G1, newdata=data[G1_index,][auxsample_G1,], type="prob")[,2]
@@ -98,69 +134,72 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05) {
   colnames(data_cond)[1:2] <- c("tau","W")
   Q_names <- colnames(data_cond)[3:ncol(data_cond)]
   data_cond$W <- as.factor(data_cond$W)
+  levels(data_cond$W) <- c("W0","W1")  # necessary for caret implementation of ranger
   
-  message <- capture.output( TaugivenQ.Model_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
-                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
+  TaugivenQ.Pred_G1_G1 <- TaugivenQ.Pred_G2_G1 <- WgivenQ.Pred_G1_G1 <- WgivenQ.Pred_G2_G1 <- rep(NA, sum(G1_index))
+  TaugivenQ.Pred_G1_G2 <- TaugivenQ.Pred_G2_G2 <- WgivenQ.Pred_G1_G2 <- WgivenQ.Pred_G2_G2 <- rep(NA, sum(G2_index))
   
-  message <- capture.output( TaugivenQ.Model_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
-                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
-                                                              tuneGrid=expand.grid(size=2,decay=0.02)) )
-  
-  
-  TaugivenQ.Pred_G1_G1 <- TaugivenQ.Pred_G2_G1 <- DgivenQ.Pred_G1_G1 <- DgivenQ.Pred_G2_G1 <- rep(NA, sum(G1_index))
-  TaugivenQ.Pred_G1_G2 <- TaugivenQ.Pred_G2_G2 <- DgivenQ.Pred_G1_G2 <- DgivenQ.Pred_G2_G2 <- rep(NA, sum(G2_index))
+  if (algorithm=="nnet") {
+    message <- capture.output( TaugivenQ.Model_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
+                                                           preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                           tuneGrid=expand.grid(size=2,decay=0.02)) )
+    
+    message <- capture.output( TaugivenQ.Model_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
+                                                           preProc=c("center","scale"), trControl=trainControl(method="none"), linout=TRUE, 
+                                                           tuneGrid=expand.grid(size=2,decay=0.02)) )
+  }
+  if (algorithm=="ranger") {
+    message <- capture.output( TaugivenQ.Model_G1 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="ranger", 
+                                                           trControl=trainControl(method="cv"),
+                                                           tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="variance",min.node.size=c(5,10,100))) )
+    
+    message <- capture.output( TaugivenQ.Model_G2 <- train(as.formula(paste("tau", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="ranger", 
+                                                           trControl=trainControl(method="cv"),
+                                                           tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="variance",min.node.size=c(5,10,100))) )
+  }
+
   
   TaugivenQ.Pred_G1_G1 <- predict(TaugivenQ.Model_G1, newdata = data_cond[G1_index,])
   TaugivenQ.Pred_G2_G1 <- predict(TaugivenQ.Model_G2, newdata = data_cond[G1_index,])
   TaugivenQ.Pred_G1_G2 <- predict(TaugivenQ.Model_G1, newdata = data_cond[G2_index,])
   TaugivenQ.Pred_G2_G2 <- predict(TaugivenQ.Model_G2, newdata = data_cond[G2_index,])
   
-  message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
+  #plotLowess(data_cond[G2_index,]$tau ~ data_cond[G2_index,]$V3)
+  #plot(data_cond[G2_index,]$V3, TaugivenQ.Pred_G2_G2)
+  
+  if (algorithm=="nnet") {  
+    message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
+                                                                                   preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
+                                                                                   tuneGrid=expand.grid(size=2,decay=0.02)) )
+  
+    message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
                                                          preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
                                                          tuneGrid=expand.grid(size=2,decay=0.02)) )
-  
-  message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
-                                                         preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                                                         tuneGrid=expand.grid(size=2,decay=0.02)) )
-  
-  WaugivenQ.Pred_G1_G1 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G1_index,], type="prob")[,2]
-  WaugivenQ.Pred_G2_G1 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G1_index,], type="prob")[,2]
-  WaugivenQ.Pred_G1_G2 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G2_index,], type="prob")[,2]
-  WaugivenQ.Pred_G2_G2 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G2_index,], type="prob")[,2]
-
-  
-  ###  ###
-
-  ### conditional prevalence ###
-  #data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.2)),include.lowest=TRUE)
-  data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.1)),include.lowest=TRUE)
-  #data$Q_cut <- cut(data[,Q], breaks=quantile(data[,Q], seq(0,1,0.02)),include.lowest=TRUE)
-  
-  G1givenQ.Model <- svyglm(as.formula(paste(G1, paste("Q_cut",collapse="+"), sep="~")), family=gaussian(), 
-                           design=svydesign(id=rownames(data), data=data, weights=data[,weight]))
-  G1givenQ.Pred <- as.vector(predict(G1givenQ.Model))
-  
-  wht1 <- data[,weight]/mean(data[,weight])
-  r <- G1givenQ.Pred/(1-G1givenQ.Pred)*mean(data[,G2]*wht1)/mean(data[,G1]*wht1)  # the weight
-  # mean(r[G2_index]*wht[G2_index])  # when the G1~Q model is saturated lm or glm, this mean is always 1. This is nice because E(r(Q)|G2=1)=1. 
-
-  c_prevalence <- (1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*(mean(data[,W][G1_index]*wht[G1_index])-mean((r*data[,W])[G2_index]*wht[G2_index]))
-
-  boot_out <- rep(NA, k)
-  for (i in 1: k) {
-  data_boot <- data[sample(1:nrow(data), nrow(data), replace = TRUE),]
-  G1givenQ.Model <- svyglm(as.formula(paste(G1, paste("Q_cut",collapse="+"), sep="~")), family=gaussian(), 
-                           design=svydesign(id=rownames(data_boot), data=data_boot, weights=data_boot[,weight]))
-  G1givenQ.Pred <- as.vector(predict(G1givenQ.Model))
-  
-  r <- G1givenQ.Pred/(1-G1givenQ.Pred)*weighted.mean(data_boot[,G2], data_boot[,weight])/weighted.mean(data_boot[,G1],data_boot[,weight])
-  boot_out[i] <- weighted.mean(data_boot[,W][data_boot[,G1]==1], data_boot[,weight][data_boot[,G1]==1])-
-    weighted.mean((r*data_boot[,W])[data_boot[,G2]==1], data_boot[,weight][data_boot[,G2]==1])
   }
+  if (algorithm=="ranger") {
+    message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="ranger", 
+                                                            trControl=trainControl(method="cv", classProbs=TRUE),  
+                                                           tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))) )
+    
+    message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="ranger", 
+                                                           trControl=trainControl(method="cv", classProbs=TRUE),
+                                                           tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))) )
+  }
+  
 
-  se.c_prevalence <- 1/sqrt(nrow(data)/2)*(1/2)*(mean(ATE_i[G1_index])+mean(ATE_i[G2_index]))*sd(boot_out)
+  WgivenQ.Pred_G1_G1 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G1_index,], type="prob")[,2]
+  WgivenQ.Pred_G2_G1 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G1_index,], type="prob")[,2]
+  WgivenQ.Pred_G1_G2 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G2_index,], type="prob")[,2]
+  WgivenQ.Pred_G2_G2 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G2_index,], type="prob")[,2]
+
+  cond_prevalence <- mean((WgivenQ.Pred_G1_G2-WgivenQ.Pred_G2_G2)*TaugivenQ.Pred_G2_G2)
+  cond_effect <- mean((TaugivenQ.Pred_G1_G1-TaugivenQ.Pred_G2_G1)*WgivenQ.Pred_G1_G1)
+  Q_dist <- mean(WgivenQ.Pred_G1_G1*TaugivenQ.Pred_G2_G1) - mean(WgivenQ.Pred_G1_G2*TaugivenQ.Pred_G2_G2)
+  cond_selection <- total-baseline-cond_prevalence-cond_effect-Q_dist
   ###  ###
+
+  
+  
   
   output <- list(
     underlying=c(mean(data[,Y][G1_index]*wht[G1_index]),
