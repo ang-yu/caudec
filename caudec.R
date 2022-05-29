@@ -171,20 +171,20 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05,algor
     if (algorithm=="nnet") {  
       message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="nnet", 
                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)), weights=wht[G1_index] )
       
       message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="nnet", 
                                                              preProc=c("center","scale"), trControl=trainControl(method="none"), linout=FALSE, 
-                                                             tuneGrid=expand.grid(size=2,decay=0.02)) )
+                                                             tuneGrid=expand.grid(size=2,decay=0.02)), weights=wht[G2_index] )
     }
     if (algorithm=="ranger") {
       message <- capture.output( WaugivenQ.Model_G1 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G1_index,], method="ranger", 
                                                              trControl=trainControl(method="cv", classProbs=TRUE),  
-                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))) )
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))), weights=wht[G1_index] )
       
       message <- capture.output( WaugivenQ.Model_G2 <- train(as.formula(paste("W", paste(Q_names,sep="+"), sep="~")), data=data_cond[G2_index,], method="ranger", 
                                                              trControl=trainControl(method="cv", classProbs=TRUE),
-                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))) )
+                                                             tuneGrid=expand.grid(mtry=floor(sqrt(length(Q_names))),splitrule="gini",min.node.size=c(1,10,100))), weights=wht[G2_index] )
     }
     
     
@@ -193,9 +193,9 @@ caudec <-  function(Y,W,G1,G2,Q,X,data,alpha=0.05,weight=NULL,k=500,t=0.05,algor
     WgivenQ.Pred_G1_G2 <- predict(WaugivenQ.Model_G1, newdata = data_cond[G2_index,], type="prob")[,2]
     WgivenQ.Pred_G2_G2 <- predict(WaugivenQ.Model_G2, newdata = data_cond[G2_index,], type="prob")[,2]
     
-    cond_prevalence <- mean((WgivenQ.Pred_G1_G2-WgivenQ.Pred_G2_G2)*TaugivenQ.Pred_G2_G2)
-    cond_effect <- mean((TaugivenQ.Pred_G1_G1-TaugivenQ.Pred_G2_G1)*WgivenQ.Pred_G1_G1)
-    Q_dist <- mean(WgivenQ.Pred_G1_G1*TaugivenQ.Pred_G2_G1) - mean(WgivenQ.Pred_G1_G2*TaugivenQ.Pred_G2_G2)
+    cond_prevalence <- mean((WgivenQ.Pred_G1_G2-WgivenQ.Pred_G2_G2)*TaugivenQ.Pred_G2_G2*wht[G2_index])
+    cond_effect <- mean((TaugivenQ.Pred_G1_G1-TaugivenQ.Pred_G2_G1)*WgivenQ.Pred_G1_G1*wht[G1_index])
+    Q_dist <- mean(WgivenQ.Pred_G1_G1*TaugivenQ.Pred_G2_G1*wht[G1_index]) - mean(WgivenQ.Pred_G1_G2*TaugivenQ.Pred_G2_G2*wht[G2_index])
     cond_selection <- total-baseline-cond_prevalence-cond_effect-Q_dist
     ###  ###
     
